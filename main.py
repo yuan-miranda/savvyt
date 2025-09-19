@@ -24,8 +24,23 @@ def download(url, file_type="mp4"):
                 {
                     "format": "bestvideo+bestaudio/best",
                     "merge_output_format": "mp4",
+                    "postprocessors": [
+                        {
+                            "key": "FFmpegVideoConvertor",
+                            "preferedformat": "mp4",
+                        },
+                        {
+                            "key": "FFmpegMetadata",
+                        },
+                    ],
+                    "postprocessor_args": [
+                        "-c:v", "copy",
+                        "-c:a", "aac",
+                        "-b:a", "192k"
+                    ],
                 }
             )
+
 
         # mp3
         elif file_type == "mp3":
