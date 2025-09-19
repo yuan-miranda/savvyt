@@ -1,8 +1,5 @@
-from pytubefix import YouTube
-from pytubefix.cli import on_progress
-import os
-import subprocess
 import shutil
+from yt_dlp import YoutubeDL
 
 
 def has_ffmpeg():
@@ -11,49 +8,54 @@ def has_ffmpeg():
 
 def download(url, file_type="mp4"):
     try:
-        yt = YouTube(url, on_progress_callback=on_progress)
-        minutes, seconds = divmod(yt.length, 60)
-        hours, minutes = divmod(minutes, 60)
-        print(f"\n{yt.title} [{hours:02d}:{minutes:02d}:{seconds:02d}]")
+        if file_type == "mp3" and not has_ffmpeg():
+            print("ffmpeg not found. Please download and add it to your PATH.")
+            print("https://ffmpeg.org/")
+            return
+
+        ydl_opts = {
+            "outtmpl": "%(title)s.%(ext)s",
+            "cookiefile": "cookies.txt",
+        }
 
         # mp4
         if file_type == "mp4":
-            ys = yt.streams.get_highest_resolution()
-            ys.download()
+            ydl_opts.update(
+                {
+                    "format": "bestvideo+bestaudio/best",
+                    "merge_output_format": "mp4",
+                }
+            )
 
         # mp3
         elif file_type == "mp3":
-            if not has_ffmpeg():
-                print("ffmpeg not found. Please download and add it to your PATH.")
-                print("https://ffmpeg.org/")
-                return
-
-            ys = yt.streams.get_lowest_resolution()
-            out_file = ys.download()
-
-            base, _ = os.path.splitext(out_file)
-            new_file = base + ".mp3"
-
-            subprocess.run(
-                ["ffmpeg", "-i", out_file, "-q:a", "0", "-map", "a", "-y", new_file],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.STDOUT,
+            ydl_opts.update(
+                {
+                    "format": "bestaudio/best",
+                    "postprocessors": [
+                        {
+                            "key": "FFmpegExtractAudio",
+                            "preferredcodec": "mp3",
+                            "preferredquality": "192",
+                        }
+                    ],
+                }
             )
-            os.remove(out_file)
 
-        # unsupported
         else:
             print("Unsupported file type. Please choose 'mp4' or 'mp3'.")
             return
 
+        with YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+
         print("Download completed!")
+
     except Exception as e:
         print(f"An error occurred: {e}")
-        return
 
 
 if __name__ == "__main__":
     url = input("Enter YouTube URL: ")
     file_type = input("Enter file type [mp4 | mp3]: ").strip().lower()
-
     download(url, file_type=file_type)
